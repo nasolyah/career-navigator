@@ -308,7 +308,7 @@ textarea.input { resize: vertical; min-height: 72px; }
 .qs-list button:hover p { color: var(--primary-ink); }
 .qs-list button:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
 
-.metro { width: 100%; height: auto; display: block; font-family: var(--font); overflow: visible; }
+.metro { width: 100%; height: auto; display: block; font-family: var(--font); }
 .metro .line path {
   fill: none;
   stroke: var(--c);

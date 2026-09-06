@@ -389,7 +389,13 @@
   function renderMapSVG(model, opts = {}) {
     const lay = layout(model);
     const out = [];
-    out.push(`<svg class="metro" viewBox="0 0 ${G.W} ${lay.H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Карта маршрутов">`);
+    // Ширину подбираем под самую длинную подпись конечной, иначе названия вузов вылезают за карту
+    const LX = G.X_T + 20;
+    const wide = model.lines.reduce((max, ln) => Math.max(max,
+      (ln.title.length + (ln.candidate ? 11 : 0)) * 9.2,
+      unisFor(ln).map(uniShort).join(' · ').length * 6.4), 0);
+    const W = Math.max(G.W, Math.min(1900, Math.ceil(LX + wide + 24)));
+    out.push(`<svg class="metro" viewBox="0 0 ${W} ${lay.H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Карта маршрутов">`);
 
     out.push('<g class="lines">');
     lay.lines.forEach((ln, i) => {
@@ -716,7 +722,7 @@
       <div>
         <div class="screen-head">
           <div><h1>Разговор, а не тест</h1><p class="lead">Пять вопросов. Под каждым — зачем мы его задаём.</p></div>
-          ${idx === 0 ? `<button class="btn btn-ghost btn-sm" data-action="demo-fill-diag" type="button">Ответить за Даню</button>` : ''}
+          ${idx < qs.length ? `<button class="btn btn-ghost btn-sm" data-action="demo-fill-diag" type="button">Ответить за Даню</button>` : ''}
         </div>
         <ol class="thread">${past}${current}</ol>
       </div>
@@ -785,10 +791,14 @@
       </section>`;
   };
 
+  // Имя в родительном падеже: Даня → Дани, Марк → Марка, Андрей → Андрея, Игорь → Игоря
   function possessive(name) {
-    // Даня → Дани, Маша → Маши; для остальных имён — как есть
-    if (/[ая]$/i.test(name)) return name.slice(0, -1) + 'и';
-    return name;
+    const n = String(name || '').trim();
+    if (!n) return n;
+    if (/[ая]$/i.test(n)) return n.slice(0, -1) + 'и';
+    if (/[йь]$/i.test(n)) return n.slice(0, -1) + 'я';
+    if (/[бвгджзклмнпрстфхцчшщ]$/i.test(n)) return n + 'а';
+    return n; // Отто, Мари и прочие — не склоняем
   }
 
   function legendIcon(kind) {
