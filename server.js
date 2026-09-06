@@ -48,7 +48,11 @@ const ai = async () => (aiModule = aiModule || await import('./lib/ai.mjs'));
 
 async function handleApi(req, res, url) {
   const key = process.env.GEMINI_API_KEY;
-  if (url.pathname === '/api/health') { const m = await ai(); return sendJSON(res, 200, { ok: true, ai: Boolean(key), model: m.MODEL }); }
+  if (url.pathname === '/api/health') { const m = await ai(); return sendJSON(res, 200, { ok: true, ai: Boolean(key), models: process.env.GEMINI_MODEL ? [process.env.GEMINI_MODEL, ...m.MODELS] : m.MODELS }); }
+  if (url.pathname === '/api/models') {
+    if (!key) return sendJSON(res, 503, { error: 'GEMINI_API_KEY is not set (create .env)' });
+    try { const m = await ai(); return sendJSON(res, 200, { models: await m.listModels(key) }); } catch (e) { return sendJSON(res, 502, { error: String(e.message || e) }); }
+  }
   if (url.pathname === '/api/map') {
     if (req.method !== 'POST') return sendJSON(res, 405, { error: 'POST only' });
     if (!key) return sendJSON(res, 503, { error: 'GEMINI_API_KEY is not set (create .env)' });
@@ -57,9 +61,9 @@ async function handleApi(req, res, url) {
     try {
       const m = await ai();
       const started = Date.now();
-      const map = await m.generateMap(payload, key);
-      console.log(`[ai] map: ${map.lines.length} lines, ${map.interests.length} interests, ${Date.now() - started} ms`);
-      return sendJSON(res, 200, { source: 'gemini', model: m.MODEL, map });
+      const map = await m.generateMap(payload, key, { model: process.env.GEMINI_MODEL });
+      console.log(`[ai] ${map.model}: ${map.lines.length} lines, ${map.interests.length} interests, ${Date.now() - started} ms`);
+      return sendJSON(res, 200, { source: 'gemini', model: map.model, map });
     } catch (e) {
       console.error('[ai] failed:', e.message);
       return sendJSON(res, 502, { error: String(e.message || e) });
