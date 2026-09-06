@@ -61,7 +61,8 @@ async function handleApi(req, res, url) {
     try {
       const m = await ai();
       const started = Date.now();
-      const map = await m.generateMap(payload, key, { model: process.env.GEMINI_MODEL });
+      const model = /^gemini-[a-z0-9.-]+$/i.test(payload.model || '') ? payload.model : process.env.GEMINI_MODEL;
+      const map = await m.generateMap(payload, key, { model });
       console.log(`[ai] ${map.model}: ${map.lines.length} lines, ${map.interests.length} interests, ${Date.now() - started} ms`);
       return sendJSON(res, 200, { source: 'gemini', model: map.model, map });
     } catch (e) {

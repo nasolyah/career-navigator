@@ -280,6 +280,9 @@ textarea.input { resize: vertical; min-height: 72px; }
 .build-steps li.is-on .tick { border-color: var(--primary); background: var(--primary); color: #fff; }
 .build-steps .tick svg { width: 10px; height: 10px; display: none; }
 .build-steps li.is-on .tick svg { display: block; }
+.build-steps li.is-wait { opacity: 1; transform: none; color: var(--ink); }
+.build-steps li.is-wait .tick { border-color: var(--primary); border-top-color: transparent; animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ---------- Карта ---------- */
 

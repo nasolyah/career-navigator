@@ -958,10 +958,14 @@
     render();
     const items = $$('.build-steps li');
     const delay = REDUCED ? 120 : 650;
-    items.slice(0, -1).forEach((li, i) => setTimeout(() => li.classList.add('is-on'), delay * (i + 1)));
+    // Первые два шага — по таймеру, третий «думает», пока не ответит AI, последний — когда карта готова
+    items.slice(0, -2).forEach((li, i) => setTimeout(() => li.classList.add('is-on'), delay * (i + 1)));
+    const thinking = items[items.length - 2];
+    if (thinking) setTimeout(() => thinking.classList.add('is-wait'), delay * (items.length - 1));
     const minWait = new Promise((r) => setTimeout(r, delay * items.length));
     const ai = requestMap().catch((e) => { console.warn('[ai] fallback:', e.message); return null; });
     Promise.all([ai, minWait]).then(([map]) => {
+      if (thinking) { thinking.classList.remove('is-wait'); thinking.classList.add('is-on'); }
       if (map) {
         state.model = map;
         state.aiSource = 'gemini';
