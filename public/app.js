@@ -14,7 +14,7 @@
   function freshState() {
     return {
       screen: 'profile',
-      profile: { name: '', grade: 9, role: 'student', subjects: {} },
+      profile: { name: '', grade: 9, quarter: 1, role: 'student', regions: ['cis'], subjects: {} },
       diag: { idx: 0, answers: {} },
       period: { grade: 9, quarter: 1 },
       model: null,          // { interests, lines, shared } — появляется после «Собрать карту»
@@ -38,6 +38,23 @@
   const STATUS_TEXT = { done: 'есть', partial: 'наполовину', gap: 'ещё нет' };
   const REACTION_TEXT = { liked: 'понравилось', ok: 'нормально', not_mine: 'не моё' };
   const ROLE_TEXT = { student: 'ученик', parent: 'родитель', school: 'школа' };
+  const REGION_TEXT = DATA.regions || { cis: 'СНГ', europe: 'Европа', usa: 'США', asia: 'Азия' };
+  function regionsOf() { const r = state.profile.regions; return Array.isArray(r) && r.length ? r : ['cis']; }
+  function startPeriod() { return { grade: 9, quarter: Number(state.profile.quarter) || 1 }; }
+
+  // Вузы линии под регионы из профиля. Старый формат (массив) тоже понимаем.
+  function unisByRegion(line) {
+    const u = line.universities;
+    if (Array.isArray(u)) return [{ region: 'cis', list: u }];
+    return regionsOf().map((r) => ({ region: r, list: (u && u[r]) || [] })).filter((x) => x.list.length);
+  }
+  // Короткий список для карты: по одному из каждого выбранного региона по кругу, максимум max
+  function unisFor(line, max = 3) {
+    const groups = unisByRegion(line);
+    const out = [];
+    for (let i = 0; i < 3 && out.length < max; i++) groups.forEach((g) => { if (g.list[i] && out.length < max) out.push(g.list[i]); });
+    return out;
+  }
 
   function lineById(id, model = state.model) { return model.lines.find((l) => l.id === id); }
 
@@ -63,8 +80,8 @@
 
   function buildModel() {
     state.model = clone({ interests: DATA.interests, lines: DATA.lines, shared: DATA.shared });
-    // Класс, выбранный при входе, задаёт стартовую точку карты
-    state.period = { grade: Number(state.profile.grade) || 9, quarter: 1 };
+    // Четверть, выбранная при входе, задаёт стартовую точку карты (класс всегда 9-й)
+    state.period = startPeriod();
   }
 
   function makeStep(station) {
@@ -298,7 +315,7 @@
     return [words.slice(0, best).join(' '), words.slice(best).join(' ')];
   }
   const halfCircle = (cx, cy, r) => `M${cx} ${cy - r} A${r} ${r} 0 0 0 ${cx} ${cy + r} Z`;
-  const uniShort = (u) => u.split(',')[0].trim();
+  const uniShort = (u) => u.split(',')[0].replace(/\s*\(.*?\)/, '').trim();
 
   function renderMapSVG(model, opts = {}) {
     const lay = layout(model);
@@ -350,7 +367,7 @@
         out.push(`<text class="label" data-line="${ln.id}" x="${n.x}" y="${baseY - 17 * (lines.length - 1)}" text-anchor="middle">${lines.map((t, i) => `<tspan x="${n.x}" dy="${i ? 17 : 0}">${esc(t)}</tspan>`).join('')}</text>`);
       });
       out.push(`<text class="label term-title" data-line="${ln.id}" x="${G.X_T + 20}" y="${ln.y - 3}">${esc(ln.title)}${ln.candidate ? ' <tspan class="badge">· гипотеза</tspan>' : ''}</text>`);
-      out.push(`<text class="label term-uni" data-line="${ln.id}" x="${G.X_T + 20}" y="${ln.y + 17}">${esc(ln.universities.map(uniShort).join(' · '))}</text>`);
+      out.push(`<text class="label term-uni" data-line="${ln.id}" x="${G.X_T + 20}" y="${ln.y + 17}">${esc(unisFor(ln).map(uniShort).join(' · '))}</text>`);
     });
     out.push('</g></svg>');
     return out.join('');
@@ -440,7 +457,7 @@
 
   // Маршрут пользователя — показываем рядом с онбордингом, чтобы было видно, куда всё ведёт
   const JOURNEY = [
-    ['Профиль', 'кто ты, класс, оценки'],
+    ['Профиль', 'имя, четверть, куда поступать, оценки'],
     ['Разговор', 'пять вопросов, не тест'],
     ['Пересечения', 'AI ищет комбинации интересов'],
     ['Карта', 'линии, станции, пересадки'],
@@ -457,6 +474,11 @@
         </ol>
         <p class="hint rail-note">Карта не выносит вердикт. Она показывает, во что складываются твои интересы, и меняется, когда меняешься ты.</p>
       </aside>`;
+  }
+
+  function regionChips(p) {
+    const on = new Set(Array.isArray(p.regions) && p.regions.length ? p.regions : ['cis']);
+    return `<div class="chips">${Object.entries(REGION_TEXT).map(([k, t]) => `<button type="button" class="chip${on.has(k) ? ' is-on' : ''}" data-region="${k}">${esc(t)}</button>`).join('')}</div>`;
   }
 
   function gradesGrid(p) {
@@ -489,7 +511,12 @@
                 <label for="p-name">Имя</label>
                 <input class="input" id="p-name" data-field="name" value="${esc(p.name)}" autocomplete="off">
               </div>
-              <p class="hint" style="margin-top:12px">${esc(periodLabel())} · ${ROLE_TEXT[p.role] || 'ученик'}. Класс меняется вместе с картой, когда наступает новый учебный год.</p>
+              <p class="hint" style="margin-top:12px">${esc(periodLabel())} · ${ROLE_TEXT[p.role] || 'ученик'}. Четверть и класс меняются вместе с картой.</p>
+              <div class="field">
+                <label>Куда хочешь поступать <span class="opt">можно несколько</span></label>
+                ${regionChips(p)}
+                <p class="hint" style="margin-top:8px">Вузы на конечных станциях подстроятся сразу.</p>
+              </div>
             </section>
             <section class="block">
               <h2>Оценки за четверть</h2>
@@ -539,16 +566,16 @@
           <input class="input" id="p-name" data-field="name" value="${esc(p.name)}" placeholder="Имя" autocomplete="off">
         </div>
         <div class="field">
-          <label>Класс</label>
-          <div class="seg" data-seg="grade">
-            ${[9, 10, 11].map((g) => `<button type="button" data-val="${g}" class="${p.grade === g ? 'is-on' : ''}">${g}</button>`).join('')}
+          <label>Какая сейчас четверть</label>
+          <p class="hint">9 класс. Карта живёт по четвертям: каждый шаг — до конца текущей.</p>
+          <div class="seg" data-seg="quarter">
+            ${[1, 2, 3, 4].map((q) => `<button type="button" data-val="${q}" class="${(p.quarter || 1) === q ? 'is-on' : ''}">${q}-я</button>`).join('')}
           </div>
         </div>
         <div class="field">
-          <label>Кто ты</label>
-          <div class="seg" data-seg="role">
-            ${[['student', 'Ученик'], ['parent', 'Родитель'], ['school', 'Школа']].map(([v, t]) => `<button type="button" data-val="${v}" class="${p.role === v ? 'is-on' : ''}">${t}</button>`).join('')}
-          </div>
+          <label>Куда хочешь поступать <span class="opt">можно несколько</span></label>
+          <p class="hint">От этого зависит, какие вузы будут на конечных станциях и что готовить заранее — например, английский для учёбы.</p>
+          ${regionChips(p)}
         </div>
         <div class="field">
           <label>Оценки за прошлую четверть <span class="opt">необязательно</span></label>
@@ -754,8 +781,8 @@
             <section class="block">
               <h2>Куда ведёт</h2>
               <p class="spec">${esc(line.specialty)}</p>
-              <ul class="unis">${line.universities.map((u) => `<li>${esc(u)}</li>`).join('')}</ul>
-              <p class="hint" style="margin-top:10px">Ориентир, не выбор: до вуза ещё ${state.period.grade === 9 ? 'три года' : state.period.grade === 10 ? 'два года' : 'год'}. В 10 классе здесь появятся требования и проходные баллы.</p>
+              ${unisByRegion(line).map(({ region, list }) => `<p class="uni-region">${esc(REGION_TEXT[region] || region)}</p><ul class="unis">${list.map((u) => `<li>${esc(u)}</li>`).join('')}</ul>`).join('')}
+              <p class="hint" style="margin-top:10px">Ориентир, не выбор: до вуза ещё ${state.period.grade === 9 ? 'три года' : state.period.grade === 10 ? 'два года' : 'год'}. Регион можно поменять в профиле — вузы обновятся. В 10 классе здесь появятся требования и проходные баллы.</p>
             </section>
             ${transfers.length ? `<section class="block">
               <h2>Пересадки</h2>
@@ -969,7 +996,7 @@
       if (map) {
         state.model = map;
         state.aiSource = 'gemini';
-        state.period = { grade: Number(state.profile.grade) || 9, quarter: 1 };
+        state.period = startPeriod();
       } else {
         buildModel();
         state.aiSource = 'fallback';
@@ -1081,11 +1108,23 @@
     const chip = e.target.closest('.compose [data-chip]');
     if (chip) { chip.classList.toggle('is-on'); const err = $('.error', chip.closest('.compose')); if (err) err.hidden = true; return; }
 
+    const regionChip = e.target.closest('[data-region]');
+    if (regionChip) {
+      const r = regionChip.dataset.region;
+      const set = new Set(regionsOf());
+      if (set.has(r)) { if (set.size > 1) set.delete(r); } else set.add(r);
+      state.profile.regions = Object.keys(REGION_TEXT).filter((k) => set.has(k));
+      save();
+      $$('[data-region]').forEach((c) => c.classList.toggle('is-on', state.profile.regions.includes(c.dataset.region)));
+      return;
+    }
+
     const segBtn = e.target.closest('.seg button');
     if (segBtn) {
       const seg = segBtn.closest('.seg');
       const val = segBtn.dataset.val;
       if (seg.dataset.seg === 'grade') state.profile.grade = Number(val);
+      else if (seg.dataset.seg === 'quarter') state.profile.quarter = Number(val);
       else if (seg.dataset.seg === 'role') state.profile.role = val;
       else if (seg.dataset.seg === 'subject') {
         const subj = seg.dataset.subject;
