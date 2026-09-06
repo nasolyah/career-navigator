@@ -1,18 +1,28 @@
-// Career Navigator — сервер. Раздаёт статику и (позже) ходит в Gemini за картой.
+// Career Navigator — локальный сервер для разработки и защиты (без интернета до Cloudflare).
 // Запуск: node server.js  → http://localhost:8765
-// Без зависимостей: только встроенные модули Node.
+// Ключ Gemini: файл .env в корне со строкой GEMINI_API_KEY=... (файл в .gitignore).
+// В проде то же самое делает worker.js на Cloudflare — общий код в lib/ai.mjs.
 
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
 const PORT = Number(process.env.PORT) || 8765;
-const ROOT = __dirname;
+const ROOT = path.join(__dirname, 'public');
+
+// .env без зависимостей
+try {
+  fs.readFileSync(path.join(__dirname, '.env'), 'utf8').split('\n').forEach((line) => {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+  });
+} catch (e) { /* .env нет — работаем без AI, фронт возьмёт заготовку */ }
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
@@ -20,7 +30,7 @@ const MIME = {
 };
 
 function sendJSON(res, status, body) {
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(JSON.stringify(body));
 }
 
@@ -33,12 +43,27 @@ function readBody(req) {
   });
 }
 
+let aiModule = null;
+const ai = async () => (aiModule = aiModule || await import('./lib/ai.mjs'));
+
 async function handleApi(req, res, url) {
-  if (url.pathname === '/api/map' && req.method === 'POST') {
-    // Здесь будет вызов Gemini. Пока — 501, фронт использует заготовленную карту.
-    let body = {};
-    try { body = JSON.parse(await readBody(req) || '{}'); } catch (e) { return sendJSON(res, 400, { error: 'bad json' }); }
-    return sendJSON(res, 501, { error: 'ai not connected yet', received: Object.keys(body) });
+  const key = process.env.GEMINI_API_KEY;
+  if (url.pathname === '/api/health') { const m = await ai(); return sendJSON(res, 200, { ok: true, ai: Boolean(key), model: m.MODEL }); }
+  if (url.pathname === '/api/map') {
+    if (req.method !== 'POST') return sendJSON(res, 405, { error: 'POST only' });
+    if (!key) return sendJSON(res, 503, { error: 'GEMINI_API_KEY is not set (create .env)' });
+    let payload;
+    try { payload = JSON.parse(await readBody(req) || '{}'); } catch (e) { return sendJSON(res, 400, { error: 'bad json' }); }
+    try {
+      const m = await ai();
+      const started = Date.now();
+      const map = await m.generateMap(payload, key);
+      console.log(`[ai] map: ${map.lines.length} lines, ${map.interests.length} interests, ${Date.now() - started} ms`);
+      return sendJSON(res, 200, { source: 'gemini', model: m.MODEL, map });
+    } catch (e) {
+      console.error('[ai] failed:', e.message);
+      return sendJSON(res, 502, { error: String(e.message || e) });
+    }
   }
   return sendJSON(res, 404, { error: 'not found' });
 }
@@ -59,4 +84,4 @@ http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   if (url.pathname.startsWith('/api/')) return handleApi(req, res, url).catch((e) => sendJSON(res, 500, { error: String(e) }));
   serveStatic(req, res, url);
-}).listen(PORT, () => console.log(`Career Navigator → http://localhost:${PORT}`));
+}).listen(PORT, () => console.log(`Career Navigator → http://localhost:${PORT}  (AI: ${process.env.GEMINI_API_KEY ? 'Gemini' : 'нет ключа, заготовка'})`));

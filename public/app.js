@@ -931,17 +931,53 @@
 
   // ---------- Сборка карты (здесь позже будет вызов AI) ----------
 
+  // Живой AI: POST /api/map (Gemini через worker.js / server.js). Если ответа нет за 40 с
+  // или он невалидный — карта Дани из data.js. Демка не ломается никогда.
+  async function requestMap() {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 40000);
+    try {
+      const res = await fetch('/api/map', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile: state.profile, answers: state.diag.answers }),
+        signal: ctrl.signal,
+      });
+      if (!res.ok) throw new Error(`api ${res.status}`);
+      const data = await res.json();
+      if (!data.map || !Array.isArray(data.map.lines) || data.map.lines.length < 3) throw new Error('bad map');
+      return data.map;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   function startBuild() {
     state.screen = 'building';
     save();
     render();
     const items = $$('.build-steps li');
     const delay = REDUCED ? 120 : 650;
-    items.forEach((li, i) => setTimeout(() => li.classList.add('is-on'), delay * (i + 1)));
-    setTimeout(() => {
-      buildModel();
-      go('map');
-    }, delay * (items.length + 1) + 200);
+    items.slice(0, -1).forEach((li, i) => setTimeout(() => li.classList.add('is-on'), delay * (i + 1)));
+    const minWait = new Promise((r) => setTimeout(r, delay * items.length));
+    const ai = requestMap().catch((e) => { console.warn('[ai] fallback:', e.message); return null; });
+    Promise.all([ai, minWait]).then(([map]) => {
+      if (map) {
+        state.model = map;
+        state.aiSource = 'gemini';
+        state.period = { grade: Number(state.profile.grade) || 9, quarter: 1 };
+      } else {
+        buildModel();
+        state.aiSource = 'fallback';
+      }
+      const last = items[items.length - 1];
+      if (last) {
+        const n = state.model.lines.length;
+        last.lastChild.textContent = `Нашёл ${n} ${plural(n, 'пересечение', 'пересечения', 'пересечений')} — строю линии`;
+        last.classList.add('is-on');
+      }
+      setTimeout(() => go('map'), REDUCED ? 100 : 550);
+    });
   }
 
   // ---------- Действия ----------
@@ -1085,7 +1121,7 @@
     const hasRobot = hasModel && state.model.interests.some((i) => i.id === 'robot');
     const bioinf = hasModel ? lineById('bioinf') : null;
     menu.innerHTML = `
-      <p class="demo-title">Перемотка времени · ${esc(periodLabel())}</p>
+      <p class="demo-title">Перемотка времени · ${esc(periodLabel())}${hasModel ? ` · AI: ${state.aiSource === 'gemini' ? 'Gemini' : 'заготовка'}` : ''}</p>
       ${hasModel ? '' : `<button type="button" data-action="demo-fill">Заполнить за Даню и собрать карту</button>`}
       <button type="button" data-action="demo-step" ${hasModel && bioinf && bioinf.step ? '' : 'disabled'}>Прошёл шаг на Биоинформатике — «понравилось»</button>
       <button type="button" data-action="demo-grades" ${hasModel ? '' : 'disabled'}>Пришли оценки за четверть</button>

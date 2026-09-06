@@ -1,0 +1,10 @@
+{
+  "name": "career-navigator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Career Navigator — живая карта карьерных маршрутов для 9-классника (IMPACT EDTECH Hackathon, кейс 2)",
+  "scripts": {
+    "dev": "node server.js",
+    "deploy": "wrangler deploy"
+  }
+}
