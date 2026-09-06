@@ -1,5 +1,13 @@
 {
+  "name": "career-navigator-deck",
+  "private": true,
+  "description": "Генераторы материалов защиты: презентация (deck.js) и шпаргалка (cheatsheet.js)",
+  "scripts": {
+    "deck": "node deck.js",
+    "cheatsheet": "node cheatsheet.js"
+  },
   "dependencies": {
-    "docx": "^9.7.1"
+    "docx": "^9.0.0",
+    "pptxgenjs": "^4.0.1"
   }
 }
