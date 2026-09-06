@@ -8,3 +8,7 @@ node_modules/
 .DS_Store
 .claude/
 .wrangler/
+
+# сборка презентации
+deck/qa*
+deck/grid-*.jpg
