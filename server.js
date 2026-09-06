@@ -63,8 +63,8 @@ async function handleApi(req, res, url) {
       const started = Date.now();
       const model = /^gemini-[a-z0-9.-]+$/i.test(payload.model || '') ? payload.model : process.env.GEMINI_MODEL;
       const map = await m.generateMap(payload, key, { model });
-      console.log(`[ai] ${map.model}: ${map.lines.length} lines, ${map.interests.length} interests, ${Date.now() - started} ms`);
-      return sendJSON(res, 200, { source: 'gemini', model: map.model, map });
+      console.log(`[ai] ${map.model}: ${map.lines.length} линий, ${Date.now() - started} мс, вход ${map.usage?.inputTokens} + выход ${map.usage?.outputTokens} токенов, $${map.usage?.costUsd}`);
+      return sendJSON(res, 200, { source: 'gemini', model: map.model, usage: map.usage, map });
     } catch (e) {
       console.error('[ai] failed:', e.message);
       return sendJSON(res, 502, { error: String(e.message || e) });

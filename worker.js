@@ -10,7 +10,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    if (url.pathname === '/api/health') return json({ ok: true, v: 6, ai: Boolean(env.GEMINI_API_KEY), models: env.GEMINI_MODEL ? [env.GEMINI_MODEL, ...MODELS] : MODELS });
+    if (url.pathname === '/api/health') return json({ ok: true, v: 7, ai: Boolean(env.GEMINI_API_KEY), models: env.GEMINI_MODEL ? [env.GEMINI_MODEL, ...MODELS] : MODELS });
 
     if (url.pathname === '/api/models') {
       if (!env.GEMINI_API_KEY) return json({ error: 'GEMINI_API_KEY is not set' }, 503);
@@ -26,7 +26,9 @@ export default {
         // payload.model — для сравнения моделей (curl); в проде обычно не передаётся
         const model = /^gemini-[a-z0-9.-]+$/i.test(payload.model || '') ? payload.model : env.GEMINI_MODEL;
         const map = await generateMap(payload, env.GEMINI_API_KEY, { model });
-        return json({ source: 'gemini', model: map.model, map });
+        // видно в Cloudflare → Workers → Observability
+        console.log(`[ai] ${map.model} | вход ${map.usage?.inputTokens} + выход ${map.usage?.outputTokens} токенов | $${map.usage?.costUsd}`);
+        return json({ source: 'gemini', model: map.model, usage: map.usage, map });
       } catch (e) {
         return json({ error: String(e && e.message || e) }, 502);
       }
