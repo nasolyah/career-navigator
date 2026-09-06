@@ -1,0 +1,10 @@
+# секреты — никогда в репозиторий
+.env
+.env.*
+.dev.vars
+
+# локальное
+node_modules/
+.DS_Store
+.claude/
+.wrangler/

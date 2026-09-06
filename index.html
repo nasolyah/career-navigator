@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Career Navigator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="brand" data-go="home" type="button">
+      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 17 L9 11 L15 15 L21 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="9" cy="11" r="2.4" fill="var(--bg)" stroke="currentColor" stroke-width="2"/>
+        <circle cx="15" cy="15" r="2.4" fill="var(--bg)" stroke="currentColor" stroke-width="2"/>
+      </svg>
+      Career Navigator
+    </button>
+    <nav class="topnav" id="topnav" aria-label="Разделы"></nav>
+    <div class="userchip" id="userchip"></div>
+  </header>
+
+  <main id="app" class="app"></main>
+
+  <div id="tooltip" class="tooltip" role="dialog" aria-live="polite" hidden></div>
+
+  <div class="demo" id="demo">
+    <button class="demo-toggle" type="button" aria-expanded="false" aria-controls="demo-menu">
+      <span aria-hidden="true">⚡</span> Демо
+    </button>
+    <div class="demo-menu" id="demo-menu" hidden></div>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
