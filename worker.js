@@ -10,7 +10,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    if (url.pathname === '/api/health') return json({ ok: true, v: 3, ai: Boolean(env.GEMINI_API_KEY), models: env.GEMINI_MODEL ? [env.GEMINI_MODEL, ...MODELS] : MODELS });
+    if (url.pathname === '/api/health') return json({ ok: true, v: 4, ai: Boolean(env.GEMINI_API_KEY), models: env.GEMINI_MODEL ? [env.GEMINI_MODEL, ...MODELS] : MODELS });
 
     if (url.pathname === '/api/models') {
       if (!env.GEMINI_API_KEY) return json({ error: 'GEMINI_API_KEY is not set' }, 503);
