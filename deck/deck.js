@@ -514,7 +514,77 @@ const hline = (s, x1, x2, y, color, th = 0.075) => s.addShape(S.rect, {
   s.addNotes('Ключевой вопрос кейса — за что готовы платить. Ответ: за сопровождение, а не за тест. И начинаем со школ, потому что привлекать подростка поштучно дорого.');
 } }
 
-// ================= 10. Прототип =================
+// ================= 10. Экономика =================
+{
+  slideNo++; if (ONLY && slideNo !== ONLY) { } else { const s = pres.addSlide();
+  title(s, 'Сколько нужно на старт и когда выходим в ноль', { fontSize: 33 });
+  sub(s, 'Себестоимость посчитана по реальным тарифам Google и Cloudflare. Зарплаты — оценка, и мы это помечаем.');
+
+  const stats = [
+    ['$0,003', 'стоит одна карта от AI: 3 300 токенов на входе, 1 300 на выходе по тарифу Gemini 3.1 Flash Lite'],
+    ['$5 / мес', 'Cloudflare Workers — 10 млн запросов. Этого хватает на десятки тысяч учеников'],
+    ['≈ $20 / мес', 'всё вместе на 1 000 активных учеников: сервер, карты, домен'],
+  ];
+  stats.forEach((st, i) => {
+    const x = 0.75 + i * 4.15;
+    card(s, x, 1.85, 3.7, 1.4, C.surface);
+    s.addText(st[0], {
+      x: x + 0.35, y: 2.0, w: 3.0, h: 0.45, fontFace: HEAD, fontSize: 25, bold: true,
+      color: C.teal, isTextBox: true, margin: 0,
+    });
+    s.addText(st[1], {
+      x: x + 0.35, y: 2.48, w: 3.0, h: 0.7, fontFace: BODY, fontSize: 11,
+      color: C.ink, isTextBox: true, margin: 0, lineSpacingMultiple: 1.15,
+    });
+  });
+
+  s.addText('Сколько нужно на старт', {
+    x: 0.75, y: 3.5, w: 5.9, h: 0.32, fontFace: HEAD, fontSize: 17, bold: true,
+    color: C.ink, isTextBox: true, margin: 0,
+  });
+  [
+    ['$500 — до пилота в школе', 'три месяца: сервисы, домен, юридические документы и согласия родителей. Команда работает за долю'],
+    ['$9 000–15 000 — runway на полгода', 'три человека, справочник на 200 профессий с требованиями вузов, пилоты в первых школах'],
+  ].forEach((it, i) => {
+    const y = 3.9 + i * 0.62;
+    dot(s, 0.9, y + 0.14, 0.16, C.orange);
+    s.addText([
+      { text: it[0] + '  ', options: { bold: true, color: C.ink } },
+      { text: it[1], options: { color: C.muted, fontSize: 11.5 } },
+    ], { x: 1.2, y, w: 5.4, h: 0.55, fontFace: BODY, fontSize: 12.5, isTextBox: true, margin: 0, lineSpacingMultiple: 1.15 });
+  });
+
+  s.addText('Когда выходим в ноль', {
+    x: 7.1, y: 3.5, w: 5.5, h: 0.32, fontFace: HEAD, fontSize: 17, bold: true,
+    color: C.ink, isTextBox: true, margin: 0,
+  });
+  [
+    ['4 подписки', 'покрывают все сервисы. Технически продукт окупает себя почти сразу'],
+    ['≈ $2 500 в месяц', 'операционные расходы, когда команда из трёх человек на зарплате'],
+    ['417 подписок или 120 классов', 'это и есть точка ноль. Смешанный сценарий: 30 школ плюс 105 родителей'],
+  ].forEach((it, i) => {
+    const y = 3.9 + i * 0.58;
+    dot(s, 7.25, y + 0.14, 0.16, C.green);
+    s.addText([
+      { text: it[0] + '  ', options: { bold: true, color: C.ink } },
+      { text: it[1], options: { color: C.muted, fontSize: 11.5 } },
+    ], { x: 7.55, y, w: 5.05, h: 0.52, fontFace: BODY, fontSize: 12.5, isTextBox: true, margin: 0, lineSpacingMultiple: 1.15 });
+  });
+
+  card(s, 0.75, 5.75, 11.85, 0.65, C.teal);
+  s.addText('Карта строится один раз, а все события пересчитывает код, а не модель. Поэтому себестоимость почти не растёт с использованием — при подписке в $6 это разница между продуктом и чат-ботом.', {
+    x: 1.1, y: 5.88, w: 11.15, h: 0.4, fontFace: BODY, fontSize: 13, bold: true,
+    color: C.white, isTextBox: true, margin: 0, valign: 'middle',
+  });
+
+  s.addText('Тарифы на сентябрь 2026: Gemini 3.1 Flash Lite — $0,25 за млн входных и $1,50 за млн выходных токенов; Cloudflare Workers Paid — $5 в месяц за 10 млн запросов. Расход токенов измерен на реальном запросе. Зарплаты и объём работ до пилота — наша оценка, а не расчёт по тарифу.', {
+    x: 0.75, y: 6.55, w: 11.85, h: 0.45, fontFace: BODY, fontSize: 9.5,
+    color: C.muted, isTextBox: true, margin: 0, lineSpacingMultiple: 1.1,
+  });
+  s.addNotes('Главное здесь: одна карта стоит треть цента, потому что модель вызывается один раз, а всю дальнейшую жизнь карты пересчитывает код. Четырёх платящих родителей достаточно, чтобы покрыть все сервисы. Операционный ноль с командой — около двух с половиной тысяч долларов в месяц, это 417 подписок или 30 школ. И мы честно разделяем: тарифы посчитаны, зарплаты оценены.');
+} }
+
+// ================= 11. Прототип =================
 {
   slideNo++; if (ONLY && slideNo !== ONLY) { } else { const s = pres.addSlide();
   s.background = { color: C.dark };
@@ -565,7 +635,7 @@ const hline = (s, x1, x2, y, color, th = 0.075) => s.addShape(S.rect, {
   s.addNotes('Здесь переходим к живой демонстрации. План: заполнить за Даню — карта от AI — открыть линию — сделать шаг — показать, как карта изменилась.');
 } }
 
-// ================= 11. Финал =================
+// ================= 12. Финал =================
 {
   slideNo++; if (ONLY && slideNo !== ONLY) { } else { const s = pres.addSlide();
   s.background = { color: C.dark };
