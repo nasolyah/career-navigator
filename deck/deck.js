@@ -323,58 +323,7 @@ const hline = (s, x1, x2, y, color, th = 0.075) => s.addShape(S.rect, {
   s.addNotes('Семь шагов пути. Восьмой — возвращение: именно он отличает спутника от теста.');
 } }
 
-// ================= 7. Прототип =================
-{
-  slideNo++; if (ONLY && slideNo !== ONLY) { } else { const s = pres.addSlide();
-  s.background = { color: C.dark };
-  title(s, 'Прототип работает — это не мокап', { color: C.white });
-  sub(s, 'Открывается по ссылке с любого ноутбука, без установки', { color: C.tealLight });
-
-  const stats = [
-    ['8 сек', 'карта собирается живым AI\nпод конкретного ученика'],
-    ['3–5', 'линий, у каждой — объяснение\n«почему это про тебя»'],
-    ['4', 'региона поступления: СНГ,\nЕвропа, США, Азия'],
-  ];
-  stats.forEach((st, i) => {
-    const x = 0.75 + i * 4.15;
-    card(s, x, 2.1, 3.7, 1.85, '17414D');
-    s.addText(st[0], {
-      x: x + 0.35, y: 2.3, w: 3.0, h: 0.7, fontFace: HEAD, fontSize: 40, bold: true,
-      color: C.white, isTextBox: true, margin: 0,
-    });
-    s.addText(st[1], {
-      x: x + 0.35, y: 3.05, w: 3.0, h: 0.7, fontFace: BODY, fontSize: 12.5,
-      color: C.tealLight, isTextBox: true, margin: 0, lineSpacingMultiple: 1.15,
-    });
-  });
-
-  const feats = [
-    [C.blue, 'Разговор вместо теста', 'пять вопросов, под каждым — зачем спрашиваем'],
-    [C.green, 'Карта', 'клик по станции: что это и на каких линиях нужно'],
-    [C.orange, 'Мои шаги', '«Я сделал шаг» → карта перестраивается на глазах'],
-    [C.pink, 'Профиль', 'оценки и новые интересы пересобирают маршруты'],
-  ];
-  feats.forEach((f, i) => {
-    const x = i % 2 === 0 ? 0.75 : 6.9;
-    const y = 4.35 + Math.floor(i / 2) * 0.82;
-    station(s, x + 0.15, y + 0.18, f[0], 0.26);
-    s.addText([
-      { text: f[1] + '  ', options: { bold: true, color: C.white } },
-      { text: f[2], options: { color: C.tealLight } },
-    ], {
-      x: x + 0.45, y, w: 5.5, h: 0.7, fontFace: BODY, fontSize: 13,
-      isTextBox: true, margin: 0, lineSpacingMultiple: 1.15,
-    });
-  });
-
-  s.addText(LINK, {
-    x: 0.75, y: 6.3, w: 11.85, h: 0.45, fontFace: BODY, fontSize: 20, bold: true,
-    color: C.orange, isTextBox: true, margin: 0,
-  });
-  s.addNotes('Здесь переходим к живой демонстрации. План: заполнить за Даню — карта от AI — открыть линию — сделать шаг — показать, как карта изменилась.');
-} }
-
-// ================= 8. AI-механика =================
+// ================= 7. AI-механика =================
 {
   slideNo++; if (ONLY && slideNo !== ONLY) { } else { const s = pres.addSlide();
   title(s, 'Где здесь AI — и где его сознательно нет');
@@ -435,7 +384,7 @@ const hline = (s, x1, x2, y, color, th = 0.075) => s.addShape(S.rect, {
   s.addNotes('Отвечаем на главный вопрос жюри: где здесь AI, а не обёртка вокруг чата. Ответ — в разделении: модель связывает и объясняет, факты берёт код из справочника, и есть fallback.');
 } }
 
-// ================= 9. Рынок =================
+// ================= 8. Рынок =================
 {
   slideNo++; if (ONLY && slideNo !== ONLY) { } else { const s = pres.addSlide();
   title(s, 'Рынок: 2,7 млн девятиклассников в год в трёх странах', { fontSize: 31 });
@@ -514,7 +463,7 @@ const hline = (s, x1, x2, y, color, th = 0.075) => s.addShape(S.rect, {
   s.addNotes('Рынок — три страны, потому что продукт языконезависим и проблема одинаковая. Главное: 2,7 миллиона девятиклассников каждый год, и спрос со стороны школ уже создан государством — в России профориентация обязательна с 2023 года, требование есть, а инструмента нет. Второе главное: семья девятиклассника уже тратит около 250 долларов в месяц на подготовку, наши 6 долларов — это два процента. TAM, SAM и SOM — наш собственный расчёт от числа учеников, а не чужая оценка рынка, и мы честно это подписываем.');
 } }
 
-// ================= 10. Бизнес-модель =================
+// ================= 9. Бизнес-модель =================
 {
   slideNo++; if (ONLY && slideNo !== ONLY) { } else { const s = pres.addSlide();
   title(s, 'За разовый тест не платят. За сопровождение — платят.', { fontSize: 31 });
@@ -563,6 +512,57 @@ const hline = (s, x1, x2, y, color, th = 0.075) => s.addShape(S.rect, {
     isTextBox: true, margin: 0, lineSpacingMultiple: 1.2,
   });
   s.addNotes('Ключевой вопрос кейса — за что готовы платить. Ответ: за сопровождение, а не за тест. И начинаем со школ, потому что привлекать подростка поштучно дорого.');
+} }
+
+// ================= 10. Прототип =================
+{
+  slideNo++; if (ONLY && slideNo !== ONLY) { } else { const s = pres.addSlide();
+  s.background = { color: C.dark };
+  title(s, 'Прототип работает — это не мокап', { color: C.white });
+  sub(s, 'Открывается по ссылке с любого ноутбука, без установки', { color: C.tealLight });
+
+  const stats = [
+    ['8 сек', 'карта собирается живым AI\nпод конкретного ученика'],
+    ['3–5', 'линий, у каждой — объяснение\n«почему это про тебя»'],
+    ['4', 'региона поступления: СНГ,\nЕвропа, США, Азия'],
+  ];
+  stats.forEach((st, i) => {
+    const x = 0.75 + i * 4.15;
+    card(s, x, 2.1, 3.7, 1.85, '17414D');
+    s.addText(st[0], {
+      x: x + 0.35, y: 2.3, w: 3.0, h: 0.7, fontFace: HEAD, fontSize: 40, bold: true,
+      color: C.white, isTextBox: true, margin: 0,
+    });
+    s.addText(st[1], {
+      x: x + 0.35, y: 3.05, w: 3.0, h: 0.7, fontFace: BODY, fontSize: 12.5,
+      color: C.tealLight, isTextBox: true, margin: 0, lineSpacingMultiple: 1.15,
+    });
+  });
+
+  const feats = [
+    [C.blue, 'Разговор вместо теста', 'пять вопросов, под каждым — зачем спрашиваем'],
+    [C.green, 'Карта', 'клик по станции: что это и на каких линиях нужно'],
+    [C.orange, 'Мои шаги', '«Я сделал шаг» → карта перестраивается на глазах'],
+    [C.pink, 'Профиль', 'оценки и новые интересы пересобирают маршруты'],
+  ];
+  feats.forEach((f, i) => {
+    const x = i % 2 === 0 ? 0.75 : 6.9;
+    const y = 4.35 + Math.floor(i / 2) * 0.82;
+    station(s, x + 0.15, y + 0.18, f[0], 0.26);
+    s.addText([
+      { text: f[1] + '  ', options: { bold: true, color: C.white } },
+      { text: f[2], options: { color: C.tealLight } },
+    ], {
+      x: x + 0.45, y, w: 5.5, h: 0.7, fontFace: BODY, fontSize: 13,
+      isTextBox: true, margin: 0, lineSpacingMultiple: 1.15,
+    });
+  });
+
+  s.addText(LINK, {
+    x: 0.75, y: 6.3, w: 11.85, h: 0.45, fontFace: BODY, fontSize: 20, bold: true,
+    color: C.orange, isTextBox: true, margin: 0,
+  });
+  s.addNotes('Здесь переходим к живой демонстрации. План: заполнить за Даню — карта от AI — открыть линию — сделать шаг — показать, как карта изменилась.');
 } }
 
 // ================= 11. Финал =================
