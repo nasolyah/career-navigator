@@ -9,14 +9,33 @@
   const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const STORAGE_KEY = 'career-navigator-v1';
 
+  // ---------- Время: четверть — это календарь, а не счётчик шагов ----------
+  // Сентябрь–октябрь → 1-я, ноябрь–декабрь → 2-я, январь–март → 3-я, апрель–май → 4-я, лето → перед следующим классом.
+  // Шаги четверть не двигают. «Записать оценки за четверть» закрывает её. Демо-панель перематывает время явно.
+
+  const Q_START_MONTH = { 1: 8, 2: 10, 3: 0, 4: 3 }; // месяц начала четверти (0-based); 3-я и 4-я — в следующем календарном году
+  function quarterOf(d) {
+    const m = d.getMonth();
+    if (m >= 8 && m <= 9) return 1;
+    if (m >= 10) return 2;
+    if (m <= 2) return 3;
+    if (m <= 4) return 4;
+    return 'summer';
+  }
+  function calendarQuarterOrFirst() { const q = quarterOf(new Date()); return q === 'summer' ? 1 : q; }
+  function schoolYearOf(d) { return d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1; }
+  function monthsBetween(from, to) { return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth()); }
+
   // ---------- Состояние ----------
 
   function freshState() {
     return {
       screen: 'profile',
-      profile: { name: '', grade: 9, quarter: 1, role: 'student', regions: ['cis'], subjects: {} },
+      profile: { name: '', grade: 9, quarter: calendarQuarterOrFirst(), role: 'student', regions: ['cis'], subjects: {} },
       diag: { idx: 0, answers: {} },
-      period: { grade: 9, quarter: 1 },
+      period: { grade: 9, quarter: calendarQuarterOrFirst() },
+      timeOffset: 0,        // месяцы «перемотки» — только демо и ручная поправка четверти
+      startSchoolYear: null,
       model: null,          // { interests, lines, shared } — появляется после «Собрать карту»
       events: [],           // лента событий, новые сверху
       lastChange: null,     // для экрана «Карта изменилась»
@@ -40,7 +59,6 @@
   const ROLE_TEXT = { student: 'ученик', parent: 'родитель', school: 'школа' };
   const REGION_TEXT = DATA.regions || { cis: 'СНГ', europe: 'Европа', usa: 'США', asia: 'Азия' };
   function regionsOf() { const r = state.profile.regions; return Array.isArray(r) && r.length ? r : ['cis']; }
-  function startPeriod() { return { grade: 9, quarter: Number(state.profile.quarter) || 1 }; }
 
   // Вузы линии под регионы из профиля. Старый формат (массив) тоже понимаем.
   function unisByRegion(line) {
@@ -73,26 +91,67 @@
   }
   function progress(line) { const st = stationsOf(line); return { done: st.filter((s) => s.status === 'done').length, total: st.length }; }
   function nextGap(line) { return stationsOf(line).find((s) => s.status !== 'done'); }
-  function periodLabel(p = state.period) { return `${p.grade} класс · ${p.quarter}-я четверть`; }
-  function advancePeriod() { const p = state.period; if (p.quarter >= 4) { p.grade += 1; p.quarter = 1; } else p.quarter += 1; }
+  // «Сейчас» с учётом перемотки. День фиксируем 15-м, чтобы сдвиг месяцев не перескакивал.
+  function now() { const d = new Date(); d.setDate(15); d.setMonth(d.getMonth() + (state.timeOffset || 0)); return d; }
+  function computePeriod() {
+    const d = now();
+    const start = state.startSchoolYear ?? schoolYearOf(new Date());
+    return { grade: Math.min(11, Math.max(9, 9 + (schoolYearOf(d) - start))), quarter: quarterOf(d) };
+  }
+  function syncPeriod() { state.period = computePeriod(); }
+  function periodLabel(p = state.period) {
+    return p.quarter === 'summer' ? `лето перед ${p.grade + 1} классом` : `${p.grade} класс · ${p.quarter}-я четверть`;
+  }
+  function periodKey(p = state.period) { return `${p.grade}-${p.quarter}`; }
+  function periodLabelFromKey(key) {
+    const [g, q] = String(key).split('-');
+    return q === 'summer' ? `лета перед ${Number(g) + 1} классом` : `${q}-й четверти ${g} класса`;
+  }
+  function deadlineText() { return state.period.quarter === 'summer' ? 'до 1 сентября' : 'до конца четверти'; }
+  // Старт карты: учебный год — текущий; если ученик поправил четверть вручную — сдвигаем время к её началу
+  function initTime() {
+    const real = new Date();
+    state.startSchoolYear = schoolYearOf(real);
+    state.timeOffset = 0;
+    const q = Number(state.profile.quarter);
+    if (q >= 1 && q <= 4 && q !== quarterOf(real)) {
+      const sy = schoolYearOf(real);
+      state.timeOffset = monthsBetween(real, new Date(q >= 3 ? sy + 1 : sy, Q_START_MONTH[q], 15));
+    }
+    syncPeriod();
+  }
+  function advanceMonths(n) { state.timeOffset = (state.timeOffset || 0) + n; syncPeriod(); }
+  // К началу следующей четверти (после 4-й — лето, после лета — 1-я следующего класса)
+  function closeQuarter() {
+    const d = now();
+    const q = quarterOf(d);
+    const y = d.getFullYear();
+    const next = q === 1 ? new Date(y, 10, 15) : q === 2 ? new Date(y + 1, 0, 15) : q === 3 ? new Date(y, 3, 15) : q === 4 ? new Date(y, 5, 15) : new Date(y, 8, 15);
+    advanceMonths(monthsBetween(d, next));
+  }
+  function stampSteps() { // шаг помнит четверть, в которой появился, — чтобы честно показать «перенесён»
+    const key = periodKey();
+    state.model.lines.forEach((l) => { if (l.step && !l.step.periodKey) l.step.periodKey = key; });
+  }
   function plural(n, one, few, many) { const m10 = n % 10, m100 = n % 100; return (m10 === 1 && m100 !== 11) ? one : (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) ? few : many; }
   function stationsWord(n) { return `${n} ${plural(n, 'станция', 'станции', 'станций')}`; }
 
   function buildModel() {
     state.model = clone({ interests: DATA.interests, lines: DATA.lines, shared: DATA.shared });
-    // Четверть, выбранная при входе, задаёт стартовую точку карты (класс всегда 9-й)
-    state.period = startPeriod();
+    initTime();
+    stampSteps();
   }
 
   function makeStep(station) {
     const t = DATA.nextSteps[station.id];
-    if (t) return Object.assign({ stationId: station.id }, t);
-    return {
+    const step = t ? Object.assign({ stationId: station.id }, t) : {
       stationId: station.id,
       text: `Разберись со станцией «${station.title}»: найди один курс или туториал и пройди первую часть.`,
       why: 'Это следующий пунктир на линии. Один вечер — и станет понятно, твоё это или нет.',
       record: 'Понравилось или нет.',
     };
+    step.periodKey = periodKey();
+    return step;
   }
 
   // ---------- События: здесь карта перестраивается ----------
@@ -108,6 +167,7 @@
   function applyEvent(ev) {
     const m = state.model;
     const changes = [];
+    syncPeriod();
     ev.period = periodLabel();
     ev.ts = Date.now();
 
@@ -141,7 +201,7 @@
         changes.push({ lineId: line.id, text: `Все станции линии «${line.title}» пройдены. Конечная: ${line.specialty}.` });
       }
       ev.title = `Ты прошёл «${station.title}» и написал «${REACTION_TEXT[ev.reaction] || 'сделано'}»`;
-      advancePeriod();
+      // Шаг четверть не двигает: можно сделать несколько шагов за одну четверть
     }
 
     if (ev.type === 'grades') {
@@ -163,8 +223,10 @@
         }
       });
       if (!changes.length) changes.push({ lineId: null, text: 'Оценки записаны, линии не изменились. Карта строится на том, что ты пробуешь, а не только на оценках.' });
-      ev.title = 'Оценки за четверть: ' + Object.entries(ev.subjects).map(([k, v]) => `${k} ${v}`).join(', ');
-      advancePeriod();
+      ev.title = `Оценки за ${state.period.quarter === 'summer' ? 'год' : state.period.quarter + '-ю четверть'}: ` + Object.entries(ev.subjects).map(([k, v]) => `${k} ${v}`).join(', ');
+      // Оценки приходят в конце четверти — это и закрывает её
+      closeQuarter();
+      changes.push({ lineId: null, text: `Четверть закрыта. Сейчас ${periodLabel()}. Невыполненные шаги остаются — с пометкой, что они перенесены.` });
     }
 
     if (ev.type === 'new_interest') {
@@ -210,7 +272,15 @@
         changes.push({ lineId: null, text: `«${title}» уже есть на карте.` });
       }
       ev.title = `Новый интерес: ${title}`;
-      if (ev.advanceGrade) state.period = { grade: state.period.grade + 1, quarter: 1 };
+    }
+
+    if (ev.type === 'time') {
+      // Перемотка времени — только из демо-панели
+      if (ev.months) advanceMonths(ev.months); else closeQuarter();
+      ev.title = `Перемотка: сейчас ${periodLabel()}`;
+      const carried = m.lines.filter((l) => l.step && l.step.periodKey && l.step.periodKey !== periodKey());
+      changes.push({ lineId: null, text: `Время идёт, а карта — нет: ${carried.length ? `${carried.length} ${plural(carried.length, 'шаг', 'шага', 'шагов')} не сделано, они перенесены с пометкой` : 'все шаги на месте'}.` });
+      if (state.period.quarter === 1 && state.period.grade > 9) changes.push({ lineId: null, text: `${state.period.grade} класс: на конечных станциях скоро появятся требования вузов и проходные баллы.` });
     }
 
     if (ev.type === 'probe_done') {
@@ -226,7 +296,6 @@
         changes.push({ lineId: null, text: `«${title}» подтверждён как интерес: ты попробовал и написал «${REACTION_TEXT[ev.reaction]}». Станция остаётся, AI ищет линию — с живыми данными здесь появится новая гипотеза.` });
       }
       ev.title = `Ты проверил «${title}» и написал «${REACTION_TEXT[ev.reaction] || 'сделано'}»`;
-      advancePeriod();
     }
 
     state.events.unshift(ev);
@@ -511,7 +580,7 @@
                 <label for="p-name">Имя</label>
                 <input class="input" id="p-name" data-field="name" value="${esc(p.name)}" autocomplete="off">
               </div>
-              <p class="hint" style="margin-top:12px">${esc(periodLabel())} · ${ROLE_TEXT[p.role] || 'ученик'}. Четверть и класс меняются вместе с картой.</p>
+              <p class="hint" style="margin-top:12px">${esc(periodLabel())} · ${ROLE_TEXT[p.role] || 'ученик'}. Четверть идёт по школьному календарю, класс меняется 1 сентября.</p>
               <div class="field">
                 <label>Куда хочешь поступать <span class="opt">можно несколько</span></label>
                 ${regionChips(p)}
@@ -523,7 +592,8 @@
               <p class="hint" style="margin:4px 0 12px">Отметь и запиши — карта честно покажет, что изменилось. Потом это будет приходить из электронного дневника само.</p>
               ${gradesGrid(p)}
               <div class="actions" style="margin-top:16px">
-                <button class="btn btn-primary" data-action="grades-submit" type="button">Записать оценки за ${state.period.quarter}-ю четверть</button>
+                <button class="btn btn-primary" data-action="grades-submit" type="button">Записать оценки за ${state.period.quarter === 'summer' ? 'год' : state.period.quarter + '-ю четверть'}</button>
+                <span class="hint">Это закроет четверть — карта перейдёт к следующей.</span>
               </div>
             </section>
           </div>
@@ -567,7 +637,7 @@
         </div>
         <div class="field">
           <label>Какая сейчас четверть</label>
-          <p class="hint">9 класс. Карта живёт по четвертям: каждый шаг — до конца текущей.</p>
+          <p class="hint">9 класс. По календарю сейчас ${calendarQuarterOrFirst()}-я — поправь, если у твоей школы иначе. Карта живёт по четвертям: каждый шаг — до конца текущей.</p>
           <div class="seg" data-seg="quarter">
             ${[1, 2, 3, 4].map((q) => `<button type="button" data-val="${q}" class="${(p.quarter || 1) === q ? 'is-on' : ''}">${q}-я</button>`).join('')}
           </div>
@@ -809,7 +879,7 @@
         <div class="screen-head">
           <div>
             <h1>Мои шаги</h1>
-            <p class="lead">${periodLabel()}. По одному шагу на линию — не план на три года, а то, что реально сделать до конца четверти.</p>
+            <p class="lead">${periodLabel()}. По одному шагу на линию — не план на три года, а то, что реально сделать ${deadlineText()}.</p>
           </div>
           <button class="btn btn-ghost" data-go="map" type="button">К карте</button>
         </div>
@@ -819,14 +889,15 @@
             const focus = state.stepsFocus === l.id;
             const reacting = state.reacting && state.reacting.lineId === l.id;
             const target = s ? stationOf(l, s.stationId) : null;
+            const carried = s && s.periodKey && s.periodKey !== periodKey();
             return `<li class="step-row${focus ? ' is-focus' : ''}" style="--c:${l.color}" data-step-line="${l.id}">
               <span class="bar"></span>
               <div>
-                <div class="meta"><b>${esc(l.title)}</b>${target ? `<span>→ станция «${esc(target.title)}»</span>` : ''}${l.candidate ? '<span class="pill partial">гипотеза</span>' : ''}</div>
+                <div class="meta"><b>${esc(l.title)}</b>${target ? `<span>→ станция «${esc(target.title)}»</span>` : ''}${l.candidate ? '<span class="pill partial">гипотеза</span>' : ''}${carried ? `<span class="pill">перенесён с ${esc(periodLabelFromKey(s.periodKey))}</span>` : ''}</div>
                 ${s ? `
                   <p class="step-text">${esc(s.text)}</p>
                   <p class="hint why">${esc(s.why)}</p>
-                  <div class="facts"><span>Срок: <b>до конца четверти</b></span><span>Записать: <b>${esc(s.record)}</b></span></div>
+                  <div class="facts"><span>Срок: <b>${deadlineText()}</b></span><span>Записать: <b>${esc(s.record)}</b></span></div>
                   <div class="actions">
                     ${reacting ? `
                       <div class="react">
@@ -855,7 +926,7 @@
                   <div class="meta"><b>${esc(p.title)}</b><span>→ проверочный шаг</span></div>
                   <p class="step-text">${esc(p.text)}</p>
                   <p class="hint why">${esc(p.why)}</p>
-                  <div class="facts"><span>Срок: <b>до конца четверти</b></span><span>Записать: <b>${esc(p.record)}</b></span></div>
+                  <div class="facts"><span>Срок: <b>${deadlineText()}</b></span><span>Записать: <b>${esc(p.record)}</b></span></div>
                   <div class="actions">
                     ${reacting ? `
                       <div class="react">
@@ -934,6 +1005,7 @@
 
   let lastScreen = null;
   function render() {
+    if (state.model) syncPeriod(); // открыли приложение в новой четверти — карта это знает
     const app = $('#app');
     const fn = screens[state.screen] || screens.profile;
     app.innerHTML = fn();
@@ -996,7 +1068,8 @@
       if (map) {
         state.model = map;
         state.aiSource = 'gemini';
-        state.period = startPeriod();
+        initTime();
+        stampSteps();
       } else {
         buildModel();
         state.aiSource = 'fallback';
@@ -1087,7 +1160,9 @@
       go('changed');
     },
     'demo-grades': () => { closeDemo(); applyEvent({ type: 'grades', subjects: clone(DATA.gradesEvent.subjects) }); go('changed'); },
-    'demo-interest': () => { closeDemo(); applyEvent({ type: 'new_interest', interestId: 'robot', advanceGrade: true }); go('changed'); },
+    'demo-interest': () => { closeDemo(); applyEvent({ type: 'new_interest', interestId: 'robot' }); go('changed'); },
+    'demo-quarter': () => { closeDemo(); applyEvent({ type: 'time' }); go('changed'); },
+    'demo-year': () => { closeDemo(); applyEvent({ type: 'time', months: 12 }); go('changed'); },
     'demo-reset': () => { state = freshState(); save(); closeDemo(); go('profile'); },
   };
 
@@ -1167,8 +1242,11 @@
       <p class="demo-title">Перемотка времени · ${esc(periodLabel())}${hasModel ? ` · AI: ${state.aiSource === 'gemini' ? 'Gemini' : 'заготовка'}` : ''}</p>
       ${hasModel ? '' : `<button type="button" data-action="demo-fill">Заполнить за Даню и собрать карту</button>`}
       <button type="button" data-action="demo-step" ${hasModel && bioinf && bioinf.step ? '' : 'disabled'}>Прошёл шаг на Биоинформатике — «понравилось»</button>
-      <button type="button" data-action="demo-grades" ${hasModel ? '' : 'disabled'}>Пришли оценки за четверть</button>
+      <button type="button" data-action="demo-grades" ${hasModel ? '' : 'disabled'}>Пришли оценки — закрыть четверть</button>
       <button type="button" data-action="demo-interest" ${hasModel && !hasRobot ? '' : 'disabled'}>Новый интерес: робототехника</button>
+      <hr>
+      <button type="button" data-action="demo-quarter" ${hasModel ? '' : 'disabled'}>Перемотать на следующую четверть</button>
+      <button type="button" data-action="demo-year" ${hasModel ? '' : 'disabled'}>Перемотать на год вперёд</button>
       <hr>
       <button type="button" class="danger" data-action="demo-reset">Сбросить всё</button>`;
   }
